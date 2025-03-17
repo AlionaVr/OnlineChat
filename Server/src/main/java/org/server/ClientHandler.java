@@ -1,60 +1,86 @@
 package org.server;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Scanner;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class ClientHandler implements Runnable {
-private static int clientCount = 0;
-private Socket clientSocket = null;
-private Server server;
+    private static int clientCount = 0;
+    private final Socket clientSocket;
+    private final Server server;
+    private String username = "Anonymous";
 
-private PrintWriter out;
-private Scanner in;
-
+    private PrintWriter output;
+    private BufferedReader input;
 
     public ClientHandler(Socket socket, Server server) {
-        try{
-            clientCount++;
-            this.server = server;
-            this.clientSocket = socket;
-            this.out = new PrintWriter(socket.getOutputStream());
-            this.in = new Scanner(socket.getInputStream());
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
-
+        this.clientSocket = socket;
+        this.server = server;
     }
-    public void sendMessage(String message) {
-        out.println(message);
-        out.flush();
-    }
-    public void closeConnection() {
-        server.removeClientFromAllClients(this);
-        clientCount--;
-        server.sendMessageToAllClients("clientCount" + clientCount);
-    }
-
 
     @Override
     public void run() {
         try {
-            while (true) {
-                server.sendMessageToAllClients("Welcome " + clientCount + "!");
-                server.sendMessageToAllClients("now there are " + clientCount + " clients!");
-                break;
+            clientCount++;
+            input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            output = new PrintWriter(clientSocket.getOutputStream(), true);
+
+            String clientName = input.readLine();
+            if (clientName != null && !clientName.trim().isEmpty()) {
+                this.username = clientName;
+            } else {
+                this.username = username + clientCount;
             }
-            while (true) {
-                String clientMessage = in.nextLine();
-                if (clientMessage.equalsIgnoreCase("exit")) {
+            server.sendMessageToAllClients("Welcome " + username + "!");
+            server.sendMessageToAllClients("Now there are " + clientCount + " clients!");
+
+            // Основной цикл обработки сообщений
+            String clientMessage;
+            while ((clientMessage = input.readLine()) != null) {
+                if (clientMessage.equalsIgnoreCase("/exit")) {
                     break;
                 }
-                System.out.println(clientMessage);
-                server.sendMessageToAllClients(clientMessage);
+
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                String formattedMessage = "[" + timestamp + "] " + username + ": " + clientMessage;
+
+                System.out.println(formattedMessage);
+                server.sendMessageToAllClients(formattedMessage);
             }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        } catch (IOException e) {
+            System.out.println("Error handling client: " + e.getMessage());
+        } finally {
+            closeConnection();
         }
+    }
+
+    public void sendMessage(String message) {
+        output.println(message);
+    }
+
+    public void closeConnection() {
+        try {
+            server.removeClientFromAllClients(this);
+            clientCount--;
+            server.sendMessageToAllClients(username + " has left the chat. Now " + clientCount + " clients.");
+
+            if (input != null) input.close();
+            if (output != null) output.close();
+            if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close();
+        } catch (IOException e) {
+            System.out.println("Error closing connection: " + e.getMessage());
+        }
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 }

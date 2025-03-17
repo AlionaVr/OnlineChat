@@ -1,36 +1,34 @@
 package org.server;
 
+import org.example.ConfigLoader;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
-    private ArrayList<ClientHandler> clients;
-    ConfigLoader configLoader = new ConfigLoader();
+    private final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
+    private ConfigLoader configLoader = new ConfigLoader();
+    private final int PORT = configLoader.loadPort();
 
-    public Server() throws IOException {
+    public void start() {
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            System.out.println("Server started on port " + PORT);
 
-        ServerSocket serverSocket = new ServerSocket(configLoader.loadPort("settings.txt"));
-        System.out.println("Server started on port " + configLoader.loadPort("settings.txt"));
-        Socket clientSocket = null;
-        try {
-            while (!serverSocket.isClosed()) {
-                clientSocket = serverSocket.accept();
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
                 System.out.println("New client connected");
+
                 ClientHandler client = new ClientHandler(clientSocket, this);
                 clients.add(client);
 
                 Thread thread = new Thread(client);
                 thread.start();
-
             }
-        }
-        catch (IOException e) {
-        }
-        finally {
-            clientSocket.close();
-            serverSocket.close();
+        } catch (IOException e) {
+            System.err.println("Server error: " + e.getMessage());
         }
     }
 
