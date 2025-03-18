@@ -1,6 +1,8 @@
 package org.server;
 
 import org.example.ConfigLoader;
+import org.example.LoggerLevel;
+import org.example.MyLogger;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -12,6 +14,7 @@ public class Server {
 
     private final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
     private final int PORT;
+    private final MyLogger logger = MyLogger.getLogger();
 
     public Server() {
         ConfigLoader configLoader = new ConfigLoader();
@@ -20,11 +23,11 @@ public class Server {
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server started on port " + PORT);
+            logger.log(LoggerLevel.SERVER_INFO, "Server started on port " + PORT);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("New client connected");
+                logger.log(LoggerLevel.SERVER_INFO, "New client connected");
 
                 ClientHandler client = new ClientHandler(clientSocket, this);
                 synchronized (clients) {
@@ -35,23 +38,24 @@ public class Server {
                 thread.start();
             }
         } catch (IOException e) {
-            System.err.println("Server error: " + e.getMessage());
+            logger.log(LoggerLevel.ERROR, "Server error: " + e.getMessage());
         }
     }
 
-    public synchronized void sendMessageToAllClients(String message, boolean isServerMessage) {
-        String formattedMessage = isServerMessage ? "[SERVER]: " + message : message;
+    public synchronized void sendMessageToAllClients(String message, boolean isServiceMessage) {
+        if (isServiceMessage) {
+            logger.log(LoggerLevel.SERVER_INFO, message);
+        }
         for (ClientHandler client : clients) {
-            client.sendMessage(formattedMessage);
+            client.sendMessage(message);
         }
     }
-
 
     public synchronized void removeClientFromAllClients(ClientHandler client) {
         clients.remove(client);
     }
 
-    public Set<ClientHandler> getClients() {
-        return clients;
+    public int getClientCount() {
+        return clients.size();
     }
 }

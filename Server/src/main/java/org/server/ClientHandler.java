@@ -1,5 +1,8 @@
 package org.server;
 
+import org.example.LoggerLevel;
+import org.example.MyLogger;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,7 +15,7 @@ public class ClientHandler implements Runnable {
     private final Socket clientSocket;
     private final Server server;
     private String username = "Anonymous";
-
+    private final MyLogger logger = MyLogger.getLogger();
     private PrintWriter output;
     private BufferedReader input;
 
@@ -23,6 +26,7 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
+
         try {
             input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             output = new PrintWriter(clientSocket.getOutputStream(), true);
@@ -32,7 +36,7 @@ public class ClientHandler implements Runnable {
                 this.username = clientName;
             }
             server.sendMessageToAllClients("Welcome " + username + "!", true);
-            server.sendMessageToAllClients("Now there are " + server.getClients().size() + " clients!", true);
+            server.sendMessageToAllClients("There are " + server.getClientCount() + " clients!", true);
 
             String clientMessage;
             while ((clientMessage = input.readLine()) != null) {
@@ -41,13 +45,11 @@ public class ClientHandler implements Runnable {
                 }
 
                 String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                String formattedMessage = "[" + timestamp + "] " + username + ": " + clientMessage;
-
-                System.out.println(formattedMessage);
+                String formattedMessage = "[" + username + "] " + clientMessage;
                 server.sendMessageToAllClients(formattedMessage, false);
             }
         } catch (IOException e) {
-            System.out.println("Error handling client: " + e.getMessage());
+            logger.log(LoggerLevel.ERROR, " handling client error: " + e.getMessage());
         } finally {
             closeConnection();
         }
@@ -60,21 +62,13 @@ public class ClientHandler implements Runnable {
     public void closeConnection() {
         try {
             server.removeClientFromAllClients(this);
-            server.sendMessageToAllClients(username + " has left the chat. Now " + server.getClients().size() + " clients.", true);
+            server.sendMessageToAllClients(username + " has left the chat. Now " + server.getClientCount() + " clients.", true);
 
             if (input != null) input.close();
             if (output != null) output.close();
             if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close();
         } catch (IOException e) {
-            System.out.println("Error closing connection: " + e.getMessage());
+            logger.log(LoggerLevel.ERROR, "Error closing connection: " + e.getMessage());
         }
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 }

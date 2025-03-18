@@ -1,6 +1,8 @@
 package org.client;
 
 import org.example.ConfigLoader;
+import org.example.LoggerLevel;
+import org.example.MyLogger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -15,6 +17,7 @@ public class Client {
     private final int PORT;
     private final String HOST;
     private boolean running = true;
+    private final MyLogger logger = MyLogger.getLogger();
 
     public Client() {
         ConfigLoader configLoader = new ConfigLoader();
@@ -23,26 +26,29 @@ public class Client {
     }
 
     public void start() {
-        try {
+        try (BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in))) {
             client = new Socket(HOST, PORT);
             output = new PrintWriter(client.getOutputStream(), true);
             input = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
-            System.out.print("Enter your name: ");
-            BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in));
-            String username = consoleInput.readLine();
+            String username = readUsername(consoleInput);
             output.println(username);
-            System.out.println("Connected to server!");
+            logger.log(LoggerLevel.SERVER_INFO, "Connected to server!");
 
             Thread receiveThread = new Thread(this::receiveMessages);
             receiveThread.start();
 
             sendMessages(consoleInput);
         } catch (IOException e) {
-            System.out.println("Client error: " + e.getMessage());
+            logger.log(LoggerLevel.ERROR, "Client error: " + e.getMessage());
         } finally {
             closeConnection();
         }
+    }
+
+    private String readUsername(BufferedReader consoleInput) throws IOException {
+        System.out.print("Enter your name: ");
+        return consoleInput.readLine();
     }
 
     private void receiveMessages() {
@@ -52,7 +58,7 @@ public class Client {
                 System.out.println(serverMessage);
             }
         } catch (IOException e) {
-            System.out.println("Connection to server lost: " + e.getMessage());
+            logger.log(LoggerLevel.ERROR, "Connection to server lost: " + e.getMessage());
         }
     }
 
@@ -70,14 +76,19 @@ public class Client {
 
     public void closeConnection() {
         running = false;
-        try {
-            if (client != null) client.close();
-            if (input != null) input.close();
-            if (output != null) output.close();
-            System.out.println("Connection closed.");
-        } catch (IOException e) {
-            System.out.println("Error closing connection: " + e.getMessage());
+        closeResource(client);
+        closeResource(input);
+        closeResource(output);
+        logger.log(LoggerLevel.SERVER_INFO, "Connection closed.");
+    }
+
+    private void closeResource(AutoCloseable resource) {
+        if (resource != null) {
+            try {
+                resource.close();
+            } catch (Exception e) {
+                logger.log(LoggerLevel.ERROR, "Error closing resource: " + e.getMessage());
+            }
         }
     }
 }
-
