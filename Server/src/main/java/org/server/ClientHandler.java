@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class ClientHandler implements Runnable {
-    private static int clientCount = 0;
     private final Socket clientSocket;
     private final Server server;
     private String username = "Anonymous";
@@ -25,20 +24,16 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            clientCount++;
             input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             output = new PrintWriter(clientSocket.getOutputStream(), true);
 
             String clientName = input.readLine();
             if (clientName != null && !clientName.trim().isEmpty()) {
                 this.username = clientName;
-            } else {
-                this.username = username + clientCount;
             }
-            server.sendMessageToAllClients("Welcome " + username + "!");
-            server.sendMessageToAllClients("Now there are " + clientCount + " clients!");
+            server.sendMessageToAllClients("Welcome " + username + "!", true);
+            server.sendMessageToAllClients("Now there are " + server.getClients().size() + " clients!", true);
 
-            // Основной цикл обработки сообщений
             String clientMessage;
             while ((clientMessage = input.readLine()) != null) {
                 if (clientMessage.equalsIgnoreCase("/exit")) {
@@ -49,7 +44,7 @@ public class ClientHandler implements Runnable {
                 String formattedMessage = "[" + timestamp + "] " + username + ": " + clientMessage;
 
                 System.out.println(formattedMessage);
-                server.sendMessageToAllClients(formattedMessage);
+                server.sendMessageToAllClients(formattedMessage, false);
             }
         } catch (IOException e) {
             System.out.println("Error handling client: " + e.getMessage());
@@ -65,8 +60,7 @@ public class ClientHandler implements Runnable {
     public void closeConnection() {
         try {
             server.removeClientFromAllClients(this);
-            clientCount--;
-            server.sendMessageToAllClients(username + " has left the chat. Now " + clientCount + " clients.");
+            server.sendMessageToAllClients(username + " has left the chat. Now " + server.getClients().size() + " clients.", true);
 
             if (input != null) input.close();
             if (output != null) output.close();

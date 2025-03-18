@@ -12,51 +12,59 @@ public class Client {
     private Socket client;
     private BufferedReader input;
     private PrintWriter output;
-    private String username;
+    private final int PORT;
+    private final String HOST;
     private boolean running = true;
 
-    public void start() {
+    public Client() {
         ConfigLoader configLoader = new ConfigLoader();
-        int port = configLoader.loadPort();
+        this.PORT = configLoader.getPort();
+        this.HOST = configLoader.getServerHost();
+    }
+
+    public void start() {
         try {
-            client = new Socket("localhost", port);
+            client = new Socket(HOST, PORT);
             output = new PrintWriter(client.getOutputStream(), true);
             input = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
-            BufferedReader scanner = new BufferedReader(new InputStreamReader(System.in));
-
             System.out.print("Enter your name: ");
-            username = scanner.readLine();
+            BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in));
+            String username = consoleInput.readLine();
             output.println(username);
             System.out.println("Connected to server!");
 
-            Thread receiveThread = new Thread(() -> {
-                try {
-                    String serverMessage;
-                    while (running && (serverMessage = input.readLine()) != null) {
-                        System.out.println("Server: " + serverMessage);
-                    }
-                } catch (IOException e) {
-                    if (running) {
-                        System.out.println("Connection to server lost: " + e.getMessage());
-                    }
-                }
-            });
+            Thread receiveThread = new Thread(this::receiveMessages);
             receiveThread.start();
 
-            String message;
-            while (running && (message = scanner.readLine()) != null) {
-                if (message.equalsIgnoreCase("/exit")) {
-                    output.println("/exit");
-                    running = false;
-                    break;
-                }
-                output.println(message);
-            }
+            sendMessages(consoleInput);
         } catch (IOException e) {
             System.out.println("Client error: " + e.getMessage());
         } finally {
             closeConnection();
+        }
+    }
+
+    private void receiveMessages() {
+        try {
+            String serverMessage;
+            while (running && (serverMessage = input.readLine()) != null) {
+                System.out.println(serverMessage);
+            }
+        } catch (IOException e) {
+            System.out.println("Connection to server lost: " + e.getMessage());
+        }
+    }
+
+    private void sendMessages(BufferedReader consoleInput) throws IOException {
+        String message;
+        while (running && (message = consoleInput.readLine()) != null) {
+            if (message.equalsIgnoreCase("/exit")) {
+                output.println("/exit");
+                running = false;
+                break;
+            }
+            output.println(message);
         }
     }
 

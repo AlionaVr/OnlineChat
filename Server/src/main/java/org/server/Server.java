@@ -9,9 +9,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
+
     private final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
-    private ConfigLoader configLoader = new ConfigLoader();
-    private final int PORT = configLoader.loadPort();
+    private final int PORT;
+
+    public Server() {
+        ConfigLoader configLoader = new ConfigLoader();
+        this.PORT = configLoader.getPort();
+    }
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -22,7 +27,9 @@ public class Server {
                 System.out.println("New client connected");
 
                 ClientHandler client = new ClientHandler(clientSocket, this);
-                clients.add(client);
+                synchronized (clients) {
+                    clients.add(client);
+                }
 
                 Thread thread = new Thread(client);
                 thread.start();
@@ -32,13 +39,19 @@ public class Server {
         }
     }
 
-    public void sendMessageToAllClients(String message) {
+    public synchronized void sendMessageToAllClients(String message, boolean isServerMessage) {
+        String formattedMessage = isServerMessage ? "[SERVER]: " + message : message;
         for (ClientHandler client : clients) {
-            client.sendMessage(message);
+            client.sendMessage(formattedMessage);
         }
     }
 
-    public void removeClientFromAllClients(ClientHandler client) {
+
+    public synchronized void removeClientFromAllClients(ClientHandler client) {
         clients.remove(client);
+    }
+
+    public Set<ClientHandler> getClients() {
+        return clients;
     }
 }
