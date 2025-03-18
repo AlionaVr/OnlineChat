@@ -18,6 +18,10 @@ public class ConfigLoader {
     }
 
     public int getPort() {
+        int port = Integer.parseInt(properties.getProperty("port", "5000"));
+        if (port < 0 || port >= 65535) {
+            throw new NumberFormatException("Invalid port number");
+        }
         return Integer.parseInt(properties.getProperty("port", "5000"));
     }
 

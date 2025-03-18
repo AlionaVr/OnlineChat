@@ -46,6 +46,7 @@ public class Server {
         if (isServiceMessage) {
             logger.log(LoggerLevel.SERVER_INFO, message);
         }
+        logger.log(LoggerLevel.MESSAGE, message);
         for (ClientHandler client : clients) {
             client.sendMessage(message);
         }

@@ -11,12 +11,12 @@ import java.io.PrintWriter;
 import java.net.Socket;
 
 public class Client {
-    private Socket client;
-    private BufferedReader input;
-    private PrintWriter output;
+    protected Socket client;
+    protected BufferedReader input;
+    protected PrintWriter output;
     private final int PORT;
     private final String HOST;
-    private boolean running = true;
+    protected boolean running = true;
     private final MyLogger logger = MyLogger.getLogger();
 
     public Client() {
@@ -51,7 +51,7 @@ public class Client {
         return consoleInput.readLine();
     }
 
-    private void receiveMessages() {
+    protected void receiveMessages() {
         try {
             String serverMessage;
             while (running && (serverMessage = input.readLine()) != null) {
@@ -62,7 +62,7 @@ public class Client {
         }
     }
 
-    private void sendMessages(BufferedReader consoleInput) throws IOException {
+    protected void sendMessages(BufferedReader consoleInput) throws IOException {
         String message;
         while (running && (message = consoleInput.readLine()) != null) {
             if (message.equalsIgnoreCase("/exit")) {
