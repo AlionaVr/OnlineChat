@@ -30,7 +30,7 @@ public class ServerTests {
 
         server.getClients().addAll(clients);
 
-        server.sendMessageToAllClients("Test message", false);
+        server.sendMessageToAllClients("Test message");
         verify(mockClient1, times(1)).sendMessage("Test message");
         verify(mockClient2, times(1)).sendMessage("Test message");
     }

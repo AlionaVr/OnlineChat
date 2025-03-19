@@ -37,7 +37,7 @@ public class MyLogger {
             writer.write(message);
             writer.newLine();
         } catch (IOException e) {
-            log(LoggerLevel.ERROR, "Error writing to log file: " + e.getMessage());
+            System.err.println("Error writing to log file: " + e.getMessage());
         }
     }
 }

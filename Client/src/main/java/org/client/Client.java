@@ -9,14 +9,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Client {
-    protected Socket client;
+    protected final AtomicBoolean running = new AtomicBoolean(true);
     protected BufferedReader input;
     protected PrintWriter output;
     private final int PORT;
     private final String HOST;
-    protected boolean running = true;
+    protected Socket clientSocket;
     private final MyLogger logger = MyLogger.getLogger();
 
     public Client() {
@@ -27,23 +28,26 @@ public class Client {
 
     public void start() {
         try (BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in))) {
-            client = new Socket(HOST, PORT);
-            output = new PrintWriter(client.getOutputStream(), true);
-            input = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            connectToServer();
 
-            String username = readUsername(consoleInput);
-            output.println(username);
-            logger.log(LoggerLevel.SERVER_INFO, "Connected to server!");
+            output.println(readUsername(consoleInput));
 
             Thread receiveThread = new Thread(this::receiveMessages);
             receiveThread.start();
 
-            sendMessages(consoleInput);
+            sendMessagesToServer(consoleInput);
         } catch (IOException e) {
             logger.log(LoggerLevel.ERROR, "Client error: " + e.getMessage());
         } finally {
             closeConnection();
         }
+    }
+
+    private void connectToServer() throws IOException {
+        clientSocket = new Socket(HOST, PORT);
+        output = new PrintWriter(clientSocket.getOutputStream(), true);
+        input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        logger.log(LoggerLevel.SERVER_INFO, "New client connected to server");
     }
 
     private String readUsername(BufferedReader consoleInput) throws IOException {
@@ -54,20 +58,22 @@ public class Client {
     protected void receiveMessages() {
         try {
             String serverMessage;
-            while (running && (serverMessage = input.readLine()) != null) {
+            while (running.get() && (serverMessage = input.readLine()) != null) {
                 System.out.println(serverMessage);
             }
         } catch (IOException e) {
-            logger.log(LoggerLevel.ERROR, "Connection to server lost: " + e.getMessage());
+            if (running.get()) {
+                logger.log(LoggerLevel.ERROR, "Connection to server lost: " + e.getMessage());
+            }
         }
     }
 
-    protected void sendMessages(BufferedReader consoleInput) throws IOException {
+    protected void sendMessagesToServer(BufferedReader consoleInput) throws IOException {
         String message;
-        while (running && (message = consoleInput.readLine()) != null) {
+        while (running.get() && (message = consoleInput.readLine()) != null) {
             if (message.equalsIgnoreCase("/exit")) {
                 output.println("/exit");
-                running = false;
+                running.set(false);
                 break;
             }
             output.println(message);
@@ -75,8 +81,8 @@ public class Client {
     }
 
     public void closeConnection() {
-        running = false;
-        closeResource(client);
+        running.set(false);
+        closeResource(clientSocket);
         closeResource(input);
         closeResource(output);
         logger.log(LoggerLevel.SERVER_INFO, "Connection closed.");

@@ -43,7 +43,7 @@ public class ClientHandlerTests {
         clientHandler.closeConnection();
 
         verify(mockServer, times(1)).removeClientFromAllClients(clientHandler);
-        verify(mockServer, times(1)).sendMessageToAllClients(anyString(), eq(true));
+        verify(mockServer, times(1)).sendMessageToAllClients(anyString());
         verify(mockInput, times(1)).close();
         verify(mockOutput, times(1)).close();
         verify(mockSocket, times(1)).close();

@@ -33,7 +33,7 @@ class ClientTest {
         when(socketMock.getOutputStream()).thenReturn(System.out);
 
         client = new Client();
-        client.client = socketMock;
+        client.clientSocket = socketMock;
         client.input = inputMock;
         client.output = outputMock;
     }
@@ -41,7 +41,7 @@ class ClientTest {
     @Test
     void whenSendMessage_MessageShouldBeSendToServer() throws IOException {
         when(inputMock.readLine()).thenReturn("Hello", null);
-        client.sendMessages(inputMock);
+        client.sendMessagesToServer(inputMock);
 
         verify(outputMock, times(1)).println("Hello");
     }
@@ -49,11 +49,11 @@ class ClientTest {
     @Test
     void whenSendMessageExit_thenStopRunning() throws IOException {
         when(inputMock.readLine()).thenReturn("/exit");
-        client.sendMessages(inputMock);
+        client.sendMessagesToServer(inputMock);
 
         verify(outputMock, times(1)).println("/exit");
 
-        assertFalse(client.running);
+        assertFalse(client.running.get());
     }
 
     @Test

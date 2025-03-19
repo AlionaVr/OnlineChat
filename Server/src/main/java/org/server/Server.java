@@ -44,18 +44,23 @@ public class Server {
         }
     }
 
-    public synchronized void sendMessageToAllClients(String message, boolean isServiceMessage) {
-        if (isServiceMessage) {
-            logger.log(LoggerLevel.SERVER_INFO, message);
-        }
-        logger.log(LoggerLevel.MESSAGE, message);
+    public synchronized void sendMessageToAllClients(String message) {
+        logger.log(LoggerLevel.SERVER_INFO, message);
         for (ClientHandler client : clients) {
             client.sendMessage(message);
         }
     }
 
+    public void sendMessageToAllExceptSender(ClientHandler sender, String message) {
+        logger.log(LoggerLevel.MESSAGE, message);
+        clients.stream()
+                .filter(client -> client != sender)
+                .forEach(client -> client.sendMessage(message));
+    }
+
     public synchronized void removeClientFromAllClients(ClientHandler client) {
         clients.remove(client);
+        logger.log(LoggerLevel.SERVER_INFO, "Client removed, current count: " + clients.size());
     }
 
     public int getClientCount() {
