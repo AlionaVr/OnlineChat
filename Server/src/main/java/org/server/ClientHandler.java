@@ -16,8 +16,8 @@ public class ClientHandler implements Runnable {
     private final Server server;
     private String username = "Anonymous";
     private final MyLogger logger = MyLogger.getLogger();
-    private PrintWriter output;
-    private BufferedReader input;
+    protected PrintWriter output;
+    protected BufferedReader input;
 
     public ClientHandler(Socket socket, Server server) {
         this.clientSocket = socket;

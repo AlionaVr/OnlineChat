@@ -12,13 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
 
-    private final Set<ClientHandler> clients = ConcurrentHashMap.newKeySet();
+    private final Set<ClientHandler> clients;
     private final int PORT;
-    private final MyLogger logger = MyLogger.getLogger();
+    private final MyLogger logger;
 
     public Server() {
         ConfigLoader configLoader = new ConfigLoader();
         this.PORT = configLoader.getPort();
+        this.clients = ConcurrentHashMap.newKeySet();
+        this.logger = MyLogger.getLogger();
     }
 
     public void start() {
@@ -58,5 +60,9 @@ public class Server {
 
     public int getClientCount() {
         return clients.size();
+    }
+
+    protected Set<ClientHandler> getClients() {
+        return clients;
     }
 }
