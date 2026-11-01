@@ -8,16 +8,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.time.format.DateTimeFormatter;
 
 public class ClientHandler implements Runnable {
-    private final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final Socket clientSocket;
     private final Server server;
     private String username = "Anonymous";
     private final MyLogger logger = MyLogger.getLogger();
     protected PrintWriter output;
     protected BufferedReader input;
+    private volatile boolean closed;
 
     public ClientHandler(Socket socket, Server server) {
         this.clientSocket = socket;
@@ -26,12 +25,16 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
-
+        if (closed) {
+            return;
+        }
         try {
             input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             output = new PrintWriter(clientSocket.getOutputStream(), true);
 
-            checkUsername();
+            if (!checkUsername()) {
+                return;
+            }
             processClientMessages();
 
         } catch (IOException e) {
@@ -41,19 +44,35 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void checkUsername() throws IOException {
+    private boolean checkUsername() throws IOException {
         String clientName = input.readLine();
-        if (clientName != null && !clientName.trim().isEmpty()) {
+        if (clientName == null) {
+            return false;
+        }
+        if (!clientName.trim().isEmpty()) {
             this.username = clientName;
+        }
+        if (!registerClient()) {
+            return false;
         }
         String joinMessage = username + " connected to server! (count: " + server.getClientCount() + ")";
 
         server.sendMessageToAllClients(joinMessage);
+        return true;
+    }
+
+    private synchronized boolean registerClient() {
+        if (closed) {
+            return false;
+        }
+        // Publish the handler only after its streams and username are ready.
+        server.addClient(this);
+        return true;
     }
 
     private void processClientMessages() throws IOException {
         String clientMessage;
-        while ((clientMessage = input.readLine()) != null) {
+        while (!closed && (clientMessage = input.readLine()) != null) {
             if (clientMessage.equalsIgnoreCase("/exit")) {
                 break;
             }
@@ -64,19 +83,42 @@ public class ClientHandler implements Runnable {
     }
 
     public void sendMessage(String message) {
-        output.println(message);
+        if (!closed) {
+            output.println(message);
+        }
     }
 
-    public void closeConnection() {
+    public synchronized void closeConnection() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        // Release I/O before registry calls or notifications, unblocking readers and writers.
+        closeResource(clientSocket);
+        closeResource(input);
+        closeResource(output);
+        boolean removed = false;
         try {
-            server.removeClientFromAllClients(this);
-            server.sendMessageToAllClients(username + " has left the chat. Now " + server.getClientCount() + " clients.");
+            removed = server.removeClientFromAllClients(this);
+        } catch (RuntimeException e) {
+            logger.log(LoggerLevel.ERROR, "Error removing client: " + e.getMessage());
+        }
+        if (removed) {
+            try {
+                server.sendMessageToAllClients(username + " has left the chat. Now " + server.getClientCount() + " clients.");
+            } catch (RuntimeException e) {
+                logger.log(LoggerLevel.ERROR, "Error announcing client departure: " + e.getMessage());
+            }
+        }
+    }
 
-            if (input != null) input.close();
-            if (output != null) output.close();
-            if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close();
-        } catch (IOException e) {
-            logger.log(LoggerLevel.ERROR, "Error closing connection: " + e.getMessage());
+    private void closeResource(AutoCloseable resource) {
+        if (resource != null) {
+            try {
+                resource.close();
+            } catch (Exception e) {
+                logger.log(LoggerLevel.ERROR, "Error closing connection: " + e.getMessage());
+            }
         }
     }
 }

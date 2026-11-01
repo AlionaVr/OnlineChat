@@ -46,4 +46,15 @@ public class ServerTests {
 
         assertEquals(1, server.getClientCount());
     }
+
+    @Test
+    void whenSendMessageExceptSender_thenOnlyOtherClientsReceiveIt() {
+        server.getClients().add(mockClient1);
+        server.getClients().add(mockClient2);
+
+        server.sendMessageToAllExceptSender(mockClient1, "Hello");
+
+        verify(mockClient1, never()).sendMessage(anyString());
+        verify(mockClient2).sendMessage("Hello");
+    }
 }

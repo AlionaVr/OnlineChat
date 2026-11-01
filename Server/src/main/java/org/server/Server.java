@@ -32,10 +32,6 @@ public class Server {
                 logger.log(LoggerLevel.SERVER_INFO, "New client connected");
 
                 ClientHandler client = new ClientHandler(clientSocket, this);
-                synchronized (clients) {
-                    clients.add(client);
-                }
-
                 Thread thread = new Thread(client);
                 thread.start();
             }
@@ -58,9 +54,14 @@ public class Server {
                 .forEach(client -> client.sendMessage(message));
     }
 
-    public synchronized void removeClientFromAllClients(ClientHandler client) {
-        clients.remove(client);
+    protected void addClient(ClientHandler client) {
+        clients.add(client);
+    }
+
+    public synchronized boolean removeClientFromAllClients(ClientHandler client) {
+        boolean removed = clients.remove(client);
         logger.log(LoggerLevel.SERVER_INFO, "Client removed, current count: " + clients.size());
+        return removed;
     }
 
     public int getClientCount() {

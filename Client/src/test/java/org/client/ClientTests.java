@@ -64,4 +64,38 @@ class ClientTest {
         verify(inputMock, times(1)).close();
         verify(socketMock, times(1)).close();
     }
+
+    @Test
+    void whenServerReachesEof_thenStopAndCloseConnection() throws IOException {
+        when(inputMock.readLine()).thenReturn(null);
+
+        client.receiveMessages();
+
+        assertFalse(client.running.get());
+        verify(socketMock).close();
+        verify(inputMock).close();
+        verify(outputMock).close();
+    }
+
+    @Test
+    void whenReceivingFails_thenStopAndCloseConnection() throws IOException {
+        when(inputMock.readLine()).thenThrow(new IOException("Disconnected"));
+
+        client.receiveMessages();
+
+        assertFalse(client.running.get());
+        verify(socketMock).close();
+        verify(inputMock).close();
+        verify(outputMock).close();
+    }
+
+    @Test
+    void whenClosedTwice_thenEachResourceIsClosedOnce() throws IOException {
+        client.closeConnection();
+        client.closeConnection();
+
+        verify(socketMock).close();
+        verify(inputMock).close();
+        verify(outputMock).close();
+    }
 }

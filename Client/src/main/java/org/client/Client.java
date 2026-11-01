@@ -19,6 +19,8 @@ public class Client {
     private final String HOST;
     protected Socket clientSocket;
     private final MyLogger logger = MyLogger.getLogger();
+    private boolean closed;
+    private volatile Thread consoleThread;
 
     public Client() {
         ConfigLoader configLoader = new ConfigLoader();
@@ -27,15 +29,14 @@ public class Client {
     }
 
     public void start() {
-        try (BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in))) {
+        try {
             connectToServer();
-
-            output.println(readUsername(consoleInput));
-
-            Thread receiveThread = new Thread(this::receiveMessages);
-            receiveThread.start();
-
-            sendMessagesToServer(consoleInput);
+            BufferedReader consoleInput = new BufferedReader(new InputStreamReader(System.in));
+            consoleThread = new Thread(() -> sendConsoleInput(consoleInput), "chat-console-input");
+            // A blocked System.in read may ignore interruption and must not keep the JVM alive.
+            consoleThread.setDaemon(true);
+            consoleThread.start();
+            receiveMessages();
         } catch (IOException e) {
             logger.log(LoggerLevel.ERROR, "Client error: " + e.getMessage());
         } finally {
@@ -44,10 +45,31 @@ public class Client {
     }
 
     private void connectToServer() throws IOException {
-        clientSocket = new Socket(HOST, PORT);
+        clientSocket = createSocket();
         output = new PrintWriter(clientSocket.getOutputStream(), true);
         input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         logger.log(LoggerLevel.SERVER_INFO, "New client connected to server");
+    }
+
+    protected Socket createSocket() throws IOException {
+        return new Socket(HOST, PORT);
+    }
+
+    private void sendConsoleInput(BufferedReader consoleInput) {
+        try {
+            String username = readUsername(consoleInput);
+            if (username == null || !running.get()) {
+                return;
+            }
+            output.println(username);
+            sendMessagesToServer(consoleInput);
+        } catch (IOException e) {
+            if (running.get()) {
+                logger.log(LoggerLevel.ERROR, "Console input error: " + e.getMessage());
+            }
+        } finally {
+            closeConnection();
+        }
     }
 
     private String readUsername(BufferedReader consoleInput) throws IOException {
@@ -65,12 +87,17 @@ public class Client {
             if (running.get()) {
                 logger.log(LoggerLevel.ERROR, "Connection to server lost: " + e.getMessage());
             }
+        } finally {
+            closeConnection();
         }
     }
 
     protected void sendMessagesToServer(BufferedReader consoleInput) throws IOException {
         String message;
         while (running.get() && (message = consoleInput.readLine()) != null) {
+            if (!running.get()) {
+                break;
+            }
             if (message.equalsIgnoreCase("/exit")) {
                 output.println("/exit");
                 running.set(false);
@@ -80,8 +107,16 @@ public class Client {
         }
     }
 
-    public void closeConnection() {
+    public synchronized void closeConnection() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         running.set(false);
+        Thread sender = consoleThread;
+        if (sender != null && sender != Thread.currentThread()) {
+            sender.interrupt();
+        }
         closeResource(clientSocket);
         closeResource(input);
         closeResource(output);
