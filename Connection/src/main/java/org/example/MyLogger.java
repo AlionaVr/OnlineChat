@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 public class MyLogger {
     private static final String LOG_FILE = "file.log";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static MyLogger logger;
+    private static volatile MyLogger logger;
 
     private MyLogger() {
     }
@@ -25,7 +25,7 @@ public class MyLogger {
         return logger;
     }
 
-    public void log(LoggerLevel level, String message) {
+    public synchronized void log(LoggerLevel level, String message) {
         String timestamp = LocalDateTime.now().format(FORMATTER);
         String logMessage = timestamp + " [" + level + "] : " + message;
         System.out.println(logMessage);
