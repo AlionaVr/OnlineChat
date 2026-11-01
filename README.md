@@ -10,8 +10,10 @@ The application consists of a server, a client, a configuration loader, and a cu
 
 1. Starts on a specified port.
 2. Accepts multiple client connections.
-3. Sends messages to all connected clients.
+3. Forwards chat messages to all connected clients except the sender.
 4. Removes clients upon disconnection.
+
+Connection and disconnection notices are sent to all clients.
 
 ### Client
 
@@ -22,9 +24,9 @@ The application consists of a server, a client, a configuration loader, and a cu
 
 ### Logging
 
-The application logs messages to the console and a file (```file.log```). Logging levels include:
+The application logs messages to the console and `file.log` in the working directory. Logging levels include:
 
-* ```ERROR``` – Logs critical issues.
+* ```ERROR``` – Logs errors.
 * ```SERVER_INFO``` – Logs server-related messages.
 * ```MESSAGE``` – Logs chat messages.
 
@@ -32,10 +34,20 @@ The application logs messages to the console and a file (```file.log```). Loggin
 
 #### Configuration
 
-Modify ```settings.txt``` to set the server port and host:
+Edit [settings.txt](Connection/src/main/resources/settings.txt) before building:
 
-```
-port=5000
+```properties
+port=9999
 host=localhost
 ```
 
+Settings are loaded from the classpath, so rebuild after changing the file.
+The port must be between 1 and 65535. If the file cannot be loaded, the application
+uses `localhost:5000`.
+
+## Future Improvements
+
+- Add integration tests with multiple clients and unexpected disconnections.
+- Support an external configuration file without rebuilding.
+- Add a server shutdown command that closes active connections.
+- Add private messages and a list of online users.
